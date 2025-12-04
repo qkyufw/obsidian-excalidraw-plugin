@@ -64,6 +64,7 @@ import { PublishOutOfDateFilesDialog } from "../../shared/Dialogs/PublishOutOfDa
 import { EmbeddableSettings } from "../../shared/Dialogs/EmbeddableSettings";
 import { processLinkText } from "../../utils/customEmbeddableUtils";
 import { getEA } from "src/core";
+import { viewportCoordsToSceneCoords } from "../../constants/constants";
 import { ExcalidrawImperativeAPI } from "@zsviczian/excalidraw/types/excalidraw/types";
 import { Mutable } from "@zsviczian/excalidraw/types/common/src/utility-types";
 import { carveOutImage, carveOutPDF, createImageCropperFile } from "../../utils/carveout";
@@ -1874,5 +1875,128 @@ export class CommandManager {
         return true;
       },
     });
+
+    this.addCommand({
+      id: "create-default-rectangle",
+      name: "Create Default Rectangle",
+      hotkeys: [{ modifiers: ["Alt"], key: "Enter" }],
+      checkCallback: (checking: boolean) => {
+        const view = this.app.workspace.getActiveViewOfType(ExcalidrawView);
+        if (checking) {
+          return Boolean(view && view.excalidrawAPI);
+        }
+
+        if (view && view.excalidrawAPI) {
+          this.createDefaultRectangleElement(view);
+          return true;
+        }
+        return false;
+      },
+    });
   }
+
+  private createDefaultRectangleElement = (view: ExcalidrawView): void => {
+    (async () => {
+      try {
+        const ea = getEA(view) as ExcalidrawAutomate;
+        ea.setView(view);
+
+        // 获取当前应用状态
+        const api = ea.getExcalidrawAPI();
+        const appState = api.getAppState();
+
+        // 检查并结束文本编辑状态
+        if (appState.editingTextElement !== null || Object.keys(appState.selectedElementIds).length > 0) {
+          // 模拟 ESC 键事件来结束编辑
+          try {
+            const escEvent = new KeyboardEvent('keydown', {
+              key: 'Escape',
+              code: 'Escape',
+              keyCode: 27,
+              bubbles: true,
+              cancelable: true
+            });
+
+            // 在画布元素上触发 ESC 事件
+            const canvasElement = view.containerEl.querySelector(".excalidraw");
+            if (canvasElement) {
+              canvasElement.dispatchEvent(escEvent);
+            }
+          } catch (error) {
+            console.warn("模拟 ESC 键失败:", error);
+          }
+        }
+
+        // 获取视口尺寸信息
+        const canvasElement = view.containerEl.querySelector(".excalidraw");
+        const canvasRect = canvasElement?.getBoundingClientRect();
+
+        if (!canvasRect) {
+          new Notice("无法获取画布尺寸信息");
+          return;
+        }
+
+        // 计算随机位置
+        const zoomLevel = appState.zoom.value;
+        const viewportWidth = canvasRect.width / zoomLevel;
+        const viewportHeight = canvasRect.height / zoomLevel;
+
+        // 获取当前视口的场景坐标
+        const sceneCoordsTopLeft = viewportCoordsToSceneCoords(
+          { clientX: 0, clientY: 0 },
+          appState
+        );
+
+        const randomX = sceneCoordsTopLeft.x + viewportWidth * 0.125 + Math.floor(Math.random() * viewportWidth * 0.75);
+        const randomY = sceneCoordsTopLeft.y + viewportHeight * 0.125 + Math.floor(Math.random() * viewportHeight * 0.75);
+
+
+        // 创建矩形元素
+        const rectId = ea.addRect(randomX, randomY, 200, 50);
+
+        // 设置矩形为圆润边角
+        ea.style.roundness = { type: 3, value: 8 }; // 3=adaptive roundness, 8=radius
+        ea.style.strokeSharpness = "round"; // 圆润边角
+
+        // 应用样式到刚创建的矩形
+        const rectElement = ea.getElement(rectId);
+        if (rectElement) {
+          rectElement.roundness = { type: 3, value: 8 };
+        }
+
+        // 添加元素到视图
+        await ea.addElementsToView(false, false, true);
+
+        // 选中刚创建的矩形元素
+        ea.selectElementsInView([rectId]);
+
+        // 模拟按下 Enter 键
+        try {
+          setTimeout(() => {
+            const enterEvent = new KeyboardEvent('keydown', {
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              bubbles: true,
+              cancelable: true
+            });
+
+            // 在画布元素上触发 Enter 事件
+            const canvasElement = view.containerEl.querySelector(".excalidraw");
+            if (canvasElement) {
+              canvasElement.dispatchEvent(enterEvent);
+            }
+          }, 50); // 短暂延迟确保选中状态已经生效
+        } catch (error) {
+          console.warn("模拟 Enter 键失败:", error);
+        }
+
+        ea.destroy();
+
+      } catch (error) {
+        console.error("创建矩形元素失败:", error);
+        new Notice("创建矩形元素时发生错误");
+      }
+    })();
+  };
 }
