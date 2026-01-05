@@ -203,6 +203,22 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
     after: "",
   },
   {
+    field: "getBoundTextElement",
+    code:
+      "getBoundTextElement(element: ExcalidrawElement, searchInView?: boolean): { eaElement?: Mutable<ExcalidrawTextElement>; sceneElement?: ExcalidrawTextElement; };",
+    desc:
+      "Returns an object describing the bound text element.\n" +
+      "If a text element is provided:\n" +
+      " - returns { eaElement } if the element is in ea.elementsDict\n" +
+      " - else (if searchInView is true) returns { sceneElement } if found in the targetView scene\n" +
+      "If a container element is provided, searches for the bound text element:\n" +
+      " - returns { eaElement } if found in ea.elementsDict\n" +
+      " - else (if searchInView is true) returns { sceneElement } if found in the targetView scene\n" +
+      "If not found, returns {}.\n" +
+      "Does not add the text element to elementsDict.",
+    after: "",
+  },
+  {
     field: "create",
     code: 'async create(params?: {filename?: string, foldername?: string, templatePath?: string, onNewPane?: boolean, silent?: boolean, frontmatterKeys?: {},}): Promise<string>;',
     desc: "Create a drawing and save it to filename.\nIf filename is null: default filename as defined in Excalidraw settings.\nIf folder is null: default folder as defined in Excalidraw settings\nReturns the path to the created file.\n" +
@@ -388,8 +404,14 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
   },
   {
     field: "addArrow",
-    code: "addArrow(points: [[x: number, y: number]], formatting?: { startArrowHead?: string; endArrowHead?: string; startObjectId?: string; endObjectId?: string;}, id?:string): string;",
-    desc: `valid values for startArrowHead and endArrowHead are: "arrow"|"bar"|"circle"|"circle_outline"|"triangle"|"triangle_outline"|"diamond"|"diamond_outline"|null`,
+    code:
+      'addArrow(points: [x: number, y: number][], formatting?: { startArrowHead?: string; endArrowHead?: string; startObjectId?: string; endObjectId?: string; startBindMode?: string; endBindMode?: string; startFixedPoint?: [number, number]; endFixedPoint?: [number, number]; elbowed?: boolean}, id?: string): string;',
+    desc:
+      "Adds an arrow element.\n" +
+      'Arrowheads: "arrow"|"bar"|"circle"|"circle_outline"|"triangle"|"triangle_outline"|"diamond"|"diamond_outline"|null.\n' +
+      'Bindings: "inside" | "outside" Sets startObjectId/endObjectId to bind the arrow ends to shapes. Bind mode: "orbit" (default) or "inside".\n' +
+      "Fixed point: [xRatio,yRatio] in 0..1 (percentage of bound element width/height) to bind to a specific point on the element. In case of orbit mode, the orbit will happen around this immaginary point.\n" +
+      "Elbowed: true will create an elbowed arrow.",
     after: "",
   },
   {
@@ -406,8 +428,15 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
   {
     field: "addEmbeddable",
     code: "addEmbeddable(topX: number, topY: number, width: number, height: number, url?: string, file?: TFile, embeddableCustomData?: EmbeddableMDCustomProps): string;",
-    desc: "Adds an iframe/webview (depending on content and platform) to the drawing. If url is not null then the iframe/webview will be loaded from the url. The url maybe a markdown link to an note in the Vault or a weblink. " +
-      "If url is null then the iframe/webview will be loaded from the file. Both the url and the file may not be null.<br>" + EMBEDDABLE_MDCUSTOMPROPS,
+    desc: "Adds an embeddable component (technically an iframe or webview depending on content and platform) to the drawing. If url is not null then the embeddable will be loaded from the url. The url maybe a markdown link to an note in the Vault or a weblink. " +
+      "If url is null then the embeddable will be loaded from the file. Both the url and the file may not be null.<br>" + EMBEDDABLE_MDCUSTOMPROPS,
+    after: "",
+  },
+  {
+    field: "addIFrame",
+    code: "addIFrame(topX: number, topY: number, width: number, height: number, url?: string, file?: TFile, html?: string): string;",
+    desc: "If the url or file attribute is provided then the iframe will insert an embeddable component (technically calling ea.addEmbeddable() in the background with the same parameters). The function is depricated in that case use addEmbeddable instead. \n" +
+      "If the html attribute is provided, then the function will create an 'iframe' element with the provided html content.",
     after: "",
   },
   {
@@ -469,9 +498,18 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
   },
   {
     field: "setView",
-    code: 'setView(view: ExcalidrawView | "first" | "active"): ExcalidrawView;',
-    desc: null,
-    after: "",
+    code: 'setView(view?: ExcalidrawView | "auto" | "first" | "active" | null, show: boolean = false): ExcalidrawView;',
+    desc: "Sets the target view for EA. All the view operations and the access to Excalidraw API will be performed on this view. " +
+      "Typically you will use setView() (to pick a sensible default) or setView(excalidrawView) (to explicitly target a specific view).\n" +
+      '"auto" is equivalent to calling setView() and can read nicer when you want to show the view (e.g. setView("auto", true)).\n' +
+      '"active" and "first" are deprecated and are kept for backward compatibility.\n' +
+      'If view is null or undefined (or "auto"), EA will pick a sensible default: first the currently active Excalidraw view (if any), otherwise the last active Excalidraw view (if it is still available), otherwise the "first" Excalidraw view in the workspace.\n' +
+      "If show is true, the view will be brought to front and focused.\n" +
+      'If "first" is provided, the target will be the first Excalidraw view returned by Obsidian\'s workspace leaf collection (i.e., the first item in getExcalidrawViews()). ' +
+      "This ordering is managed by Obsidian and does not necessarily match what a user would consider the “first” view; from a user's perspective it may appear random.\n" +
+      'If "active" is provided, the currently active Excalidraw view in the workspace will be used. If that is not available, then the last active Excalidraw view will be used.\n' +
+      "The function returns the ExcalidrawView that was set as targetView.",
+    after: '("auto",true);',
   },
   {
     field: "getExcalidrawAPI",
@@ -680,6 +718,37 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
     after: "",
   },
   {
+    field: "setScriptSettingValue",
+    code: "setScriptSettingValue(key: string, value: ScriptSettingValue): void;",
+    desc:
+      `Sets a single Script Engine setting value for the active script (in-memory).\n` +
+      `Use saveScriptSettings() to persist changes.\n` +
+      `Handles initialization when scriptEngineSettings[activeScript] is undefined/null.\n` +
+      `See for more details: ${hyperlink("https://zsviczian.github.io/obsidian-excalidraw-plugin/ExcalidrawScriptsEngine.html","Script Engine Help")}\n\n` +
+      `type ScriptSettingValue = { value?: string; hidden?: boolean; description?: string; valueset?: string[]; height?: number; };`,
+    after: `("myKey", { value: "" });`,
+  },
+  {
+    field: "getScriptSettingValue",
+    code: "getScriptSettingValue(key: string, defaultValue: ScriptSettingValue): ScriptSettingValue;",
+    desc:
+      `Gets a single Script Engine setting value for the active script.\n` +
+      `Returns defaultValue if the key does not exist (or if activeScript is not set).\n` +
+      `Handles initialization when scriptEngineSettings[activeScript] is undefined/null.\n` +
+      `See for more details: ${hyperlink("https://zsviczian.github.io/obsidian-excalidraw-plugin/ExcalidrawScriptsEngine.html","Script Engine Help")}\n\n` +
+      `type ScriptSettingValue = { value?: string; hidden?: boolean; description?: string; valueset?: string[]; height?: number; };`,
+    after: `("myKey", { value: "" });`,
+  },
+  {
+    field: "saveScriptSettings",
+    code: "async saveScriptSettings(): Promise<void>;",
+    desc:
+      `Persists Script Engine settings to disk (plugin settings).\n` +
+      `Useful after calling setScriptSettingValue().\n` +
+      `See for more details: ${hyperlink("https://zsviczian.github.io/obsidian-excalidraw-plugin/ExcalidrawScriptsEngine.html","Script Engine Help")}`,
+    after: "()",
+  },
+  {
     field: "openFileInNewOrAdjacentLeaf",
     code: "openFileInNewOrAdjacentLeaf(file: TFile): WorkspaceLeaf;",
     desc: "Open a file in a new workspaceleaf or reuse an existing adjacent leaf depending on Excalidraw Plugin Settings",
@@ -777,6 +846,25 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
     after: "",
   },
   {
+    field: "getViewColorPalette",
+    code: "getViewColorPalette(palette: \"canvasBackground\"|\"elementBackground\"|\"elementStroke\"): (string[] | string)[];",
+    desc: "Returns the current view's palette for canvas background, element background, or element stroke colors. Falls back to the default palette when no view is loaded or the palette is unavailable.",
+    after: "(\"elementStroke\");",
+  },
+  {
+    field: "showColorPicker",
+    code: "async showColorPicker(anchorElement: HTMLElement, palette: \"canvasBackground\"|\"elementBackground\"|\"elementStroke\", includeSceneColors: boolean = true): Promise<string | null>;",
+    desc: "Opens a palette popover anchored to the provided element and resolves with the selected color; returns null when dismissed.\n\n" +
+      "Example Usage:\n" +
+      'const selected = await ea.showColorPicker(button.buttonEl, "elementStroke");\n' +
+      "if(selected) {" +
+      'console.log("User selected color: " + selected);' +
+      "} else {" +
+      'console.log("User cancelled color selection");' +
+      "}",
+    after: "(buttonEl, \"elementStroke\");",
+  },
+  {
     field: "obsidian",
     code: "obsidian",
     desc: `Access functions and objects available on the ${hyperlink("https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts","Obsidian Module")}`,
@@ -837,6 +925,47 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
     field: "getViewCenterPosition",
     code: "getViewCenterPosition(): {x: number, y: number};",
     desc: "@returns the center position of the current view in Excalidraw coordinates",
+    after: "",
+  },
+  {
+    field: "checkForActiveSidepanelTabForScript",
+    code: "checkForActiveSidepanelTabForScript(scriptName?: string): ExcalidrawSidepanelTab | null;",
+    desc: "Returns the active sidepanel tab for the given script, or null if none exists. " +
+      "If scriptName is omitted the function checks ea.activeScript. " +
+      "At most one sidepanel tab may be open per script. " +
+      "The returned ExcalidrawSidepanelTab may be hosted by a different ExcalidrawAutomate instance — compare sidepanelTab.getHostEA() === ea to determine ownership. " +
+      "Useful to detect or reuse an existing tab instead of creating a new one.",
+    after: '("MyScript");'
+  },
+  {
+    field: "createSidepanelTab",
+    code: "async createSidepanelTab(title: string, persist: boolean = false, reveal: boolean = true,): Promise<ExcalidrawSidepanelTab | null>;",
+    desc: "Creates this EA instance's sidepanel tab; use the returned ExcalidrawSidepanelTab (setContent/setTitle, onOpen/onClose/onFocus, contentEl) to build the UI and lifecycle hooks.\n"+
+      "In case the script wants to replace the sidepanel tab it created earlier, call closeSidepanelTab() first, then createSidepanelTab() again.",
+    after: "",
+  },
+  {
+    field: "getSidepanelLeaf",
+    code: "getSidepanelLeaf(): WorkspaceLeaf | null;",
+    desc: "Returns the WorkspaceLeaf hosting the Excalidraw sidepanel view, or null if the sidepanel is not present.",
+    after: "();"
+  },
+  {
+    field: "toggleSidepanelView",
+    code: "toggleSidepanelView(): void;",
+    desc: "Toggles the Excalidraw sidepanel visibility when the sidepanel is hosted in the left or right workspace split. If the sidepanel is not attached to a left/right sidebar, no action is taken.",
+    after: "();"
+  },
+  {
+    field: "persistSidepanelTab",
+    code: "persistSidepanelTab(): ExcalidrawSidepanelTab | null;",
+    desc: "Pins the active script's sidepanel tab so it persists across Obsidian restarts and returns it.",
+    after: "",
+  },
+  {
+    field: "attachInlineLinkSuggester",
+    code: "attachInlineLinkSuggester(inputEl: HTMLInputElement, widthWrapper?: HTMLElement): KeyBlocker;",
+    desc: "Attaches an inline [[link]] suggester to an input. Optionally align width to a wrapper element. Returns a KeyBlocker so host scripts can skip their own keydown handlers while the suggester is active via isBlockingKeys(); call close() on the returned suggester to detach.",
     after: "",
   },
   {
@@ -951,7 +1080,7 @@ export const EXCALIDRAW_AUTOMATE_INFO: SuggesterInfo[] = [
 export const EXCALIDRAW_SCRIPTENGINE_INFO: SuggesterInfo[] = [
   {
     field: "inputPrompt",
-    code: "inputPrompt: (opts: {header: string, placeholder?: string, value?: string, buttons?: {caption:string, tooltip?:string, action:Function}[], lines?: number, displayEditorButtons?: boolean, customComponents?: (container: HTMLElement) => void, blockPointerInputOutsideModal?: boolean, controlsOnTop?: boolean});",
+    code: "inputPrompt: (opts: {header: string, placeholder?: string, value?: string, buttons?: {caption:string, tooltip?:string, iconId?: string, action:Function}[], lines?: number, displayEditorButtons?: boolean, customComponents?: (container: HTMLElement) => void, blockPointerInputOutsideModal?: boolean, controlsOnTop?: boolean});",
     desc:
       "Opens a prompt that asks for an input.\nReturns a string with the input.\nYou need to await the result of inputPrompt.\n" +
       "Editor buttons are text editing buttons like delete, enter, allcaps - these are only displayed if lines is greater than 1 \n" +
@@ -959,6 +1088,7 @@ export const EXCALIDRAW_SCRIPTENGINE_INFO: SuggesterInfo[] = [
       "blockPointerInputOutsideModal will block pointer input outside the modal. This is useful if you want to prevent the user accidently closing the modal or interacting with the excalidraw canvas while the prompt is open.\n" +
       "controlsOnTop when set to true will move all the buttons to the top of the modal, leaving the text area at the bottom. This feature was developed for Scribble Helper script to avoid your palm pressing buttons while scribbling.\n"+
       "buttons.action(input: string) => string\nThe button action function will receive the actual input string. If action returns null, input will be unchanged. If action returns a string, input will receive that value when the promise is resolved. " +
+      "iconId is the lucide.dev icon name. If iconId is provided caption will be ignored, simply submit \"\" as caption in that case. \n" +
       "example:\n<code>let fileType = '';\nconst filename = await utils.inputPrompt (\n  'Filename',\n  '',\n  '',\n,  [\n    {\n      caption: 'Markdown',\n      action: ()=>{fileType='md';return;}\n    },\n    {\n      caption: 'Excalidraw',\n      action: ()=>{fileType='ex';return;}\n    }\n  ]\n);</code>",
     after: `({\n  header: "",\n  placeholder: undefined, //string\n  value: undefined, //string\n  buttons: [{ //optional, may leave undefined\n    caption: "", //string\n    tooltip: undefined, //string\n    action: (input)=>{} //Function\n  }],\n  lines: undefined, //number\n  displayEditorButtons: undefined, //boolean\n  customComponents: undefined, //(container: HTMLElement) => void\n  blockPointerInputOutsideModal: undefined, //boolean\n  controlsOnTop: undefined, //boolean\n  draggable: undefined, //boolean\n});`,
   },

@@ -5,6 +5,7 @@ import {
   ExcalidrawElement,
   ExcalidrawImageElement,
   FileId,
+  FixedPoint,
 } from "@zsviczian/excalidraw/types/element/src/types";
 import { normalizePath, TFile } from "obsidian";
 
@@ -30,7 +31,7 @@ import {
   isVersionNewerThanOther,
   scaleLoadedImage,
 } from "src/utils/utils";
-import { GenericInputPrompt, NewFileActions } from "src/shared/Dialogs/Prompt";
+import { GenericInputPrompt, LaTexPrompt, NewFileActions } from "src/shared/Dialogs/Prompt";
 import { t } from "src/lang/helpers";
 import { Mutable } from "@zsviczian/excalidraw/types/common/src/utility-types";
 import {
@@ -38,7 +39,7 @@ import {
   extractCodeBlocks as _extractCodeBlocks,
 } from "../utils/AIUtils";
 import { EmbeddedFilesLoader } from "src/shared/EmbeddedFileLoader";
-import { SVGColorInfo } from "src/types/excalidrawAutomateTypes";
+import { ScriptSettingValue, SVGColorInfo } from "src/types/excalidrawAutomateTypes";
 import { ExcalidrawData, getExcalidrawMarkdownHeaderSection, REG_LINKINDEX_HYPERLINK, REGEX_LINK } from "src/shared/ExcalidrawData";
 import { getFrameBasedOnFrameNameOrId, sceneRemoveInternalLinks } from "./excalidrawViewUtils";
 import { ScriptEngine } from "src/shared/Scripts";
@@ -190,10 +191,6 @@ export function getLineBox(
   };
 }
 
-export function getFontFamily(id: number):string {
-  return getFontFamilyString({fontFamily:id})
-}
-
 export function _measureText(
   newText: string,
   fontSize: number,
@@ -210,7 +207,7 @@ export function _measureText(
   }
   const metrics = measureText(
     newText,
-    `${fontSize.toString()}px ${getFontFamily(fontFamily)}` as any,
+    `${fontSize.toString()}px ${getFontFamilyString({fontFamily})}` as any,
     lineHeight
   );
   return { w: metrics.width, h: metrics.height };
@@ -656,15 +653,19 @@ export function repositionElementsToCursor(
 export const insertLaTeXToView = (view: ExcalidrawView, center: boolean = false) => {
   const app = view.plugin.app;
   const ea = getEA(view) as ExcalidrawAutomate;
-  GenericInputPrompt.Prompt(
-    view,
-    view.plugin,
-    app,
-    t("ENTER_LATEX"),
-    "\\color{red}\\oint_S {E_n dA = \\frac{1}{{\\varepsilon _0 }}} Q_{inside}",
-    view.plugin.settings.latexBoilerplate,
-    undefined,
-    3
+  const isLatexSuitAvailable = !!app.plugins.plugins["obsidian-latex-suite"];
+  (isLatexSuitAvailable
+    ? LaTexPrompt.Prompt(app, t("ENTER_LATEX"), view.plugin.settings.latexBoilerplate)
+    : GenericInputPrompt.Prompt(
+        view,
+        view.plugin,
+        app,
+        t("ENTER_LATEX"),
+        "\\color{red}\\oint_S {E_n dA = \\frac{1}{{\\varepsilon _0 }}} Q_{inside}",
+        view.plugin.settings.latexBoilerplate,
+        undefined,
+        3
+      )
   ).then(async (formula: string) => {
     if (formula) {
       const id = await ea.addLaTex(0, 0, formula);
@@ -679,7 +680,7 @@ export const insertLaTeXToView = (view: ExcalidrawView, center: boolean = false)
       ea.selectElementsInView([id]);
     }
     ea.destroy();
-  });
+  }, () => {});
 };
 
 export const search = async (view: ExcalidrawView) => {
@@ -845,7 +846,7 @@ export const cloneElement = (el: ExcalidrawElement):any => {
 }
 
 export const verifyMinimumPluginVersion = (requiredVersion: string): boolean => {
-  return PLUGIN_VERSION === requiredVersion || isVersionNewerThanOther(PLUGIN_VERSION,requiredVersion);
+  return PLUGIN_VERSION.split("-")[0] === requiredVersion || isVersionNewerThanOther(PLUGIN_VERSION.split("-")[0],requiredVersion);
 }
 
 export const getBoundTextElementId = (container: ExcalidrawElement | null) => {
@@ -853,3 +854,82 @@ export const getBoundTextElementId = (container: ExcalidrawElement | null) => {
     ? container?.boundElements?.find((ele) => ele.type === "text")?.id || null
     : null;
 };
+
+/**
+ * 
+ * FixedPoint represents the fixed point binding information in form of a vertical and
+ * horizontal ratio (i.e. a percentage value in the 0.0-1.0 range). This ratio
+ * gives the user selected fixed point by multiplying the bound element width
+ * with fixedPoint[0] and the bound element height with fixedPoint[1] to get the
+ * bound element-local point coordinate.
+ */
+export const normalizeFixedPoint = <T extends FixedPoint | null | undefined>(
+  fixedPoint: T,
+): T extends null ? null : FixedPoint => {
+  if (!fixedPoint) {
+    return [0.50001, 0.5001] as any as T extends null ? null : FixedPoint;
+  }
+  if (fixedPoint[0] < 0 || fixedPoint[0] > 1) {
+    fixedPoint[0] = 0.5001;
+  }
+  if (fixedPoint[1] < 0 || fixedPoint[1] > 1) {
+    fixedPoint[1] = 0.5001;
+  }
+  // Do not allow a precise 0.5 for fixed point ratio
+  // to avoid jumping arrow heading due to floating point imprecision
+  if (
+    fixedPoint &&
+    (Math.abs(fixedPoint[0] - 0.5) < 0.0001 ||
+      Math.abs(fixedPoint[1] - 0.5) < 0.0001)
+  ) {
+    return fixedPoint.map((ratio) =>
+      Math.abs(ratio - 0.5) < 0.0001 ? 0.5001 : ratio,
+    ) as T extends null ? null : FixedPoint;
+  }
+  return fixedPoint as any as T extends null ? null : FixedPoint;
+};
+
+export const normalizeBindMode = (bindMode?: string): "orbit" | "inside" => {
+  if (!bindMode || (bindMode !== "orbit" && bindMode !== "inside")) {
+    return "orbit";
+  }
+  return bindMode;
+};
+
+/**
+ * Ensures that plugin.settings.scriptEngineSettings and the active script's settings object exist.
+ * Handles undefined/null during initialization.
+ *
+ * Note: kept in utils (not as an EA private method) so it won't be exposed on window.ExcalidrawAutomate.
+ */
+export function ensureActiveScriptSettingsObject(
+  ea: ExcalidrawAutomate
+): Record<string, ScriptSettingValue> | null {
+  const activeScript = ea?.activeScript;
+  const plugin = ea?.plugin;
+
+  if (!activeScript || !plugin?.settings) {
+    return null;
+  }
+
+  // Ensure the top-level container exists
+  if (!plugin.settings.scriptEngineSettings || typeof plugin.settings.scriptEngineSettings !== "object") {
+    plugin.settings.scriptEngineSettings = {};
+  }
+
+  // Ensure the per-script settings object exists (handle null/undefined)
+  const current = plugin.settings.scriptEngineSettings[activeScript];
+  if (!current || typeof current !== "object") {
+    plugin.settings.scriptEngineSettings[activeScript] = {};
+  }
+
+  return plugin.settings.scriptEngineSettings[activeScript] as Record<string, ScriptSettingValue>;
+}
+
+export function getLastActiveExcalidrawView(plugin: ExcalidrawPlugin): ExcalidrawView | null {
+  const leaf = plugin.app.workspace.getLeafById(plugin.lastActiveExcalidrawLeafID);
+  if(leaf && leaf.view instanceof ExcalidrawView) {
+    return leaf.view as ExcalidrawView;
+  }
+  return null;
+}

@@ -829,7 +829,10 @@ const tmpObsidianWYSIWYG = async (
       }
       if(warningEl) {
         const dataHeading = warningEl.getAttr("data-heading");
-        const ref = dataHeading.match(/.+(\^(?:group=|area=|frame=|clippedframe=)[A-Za-z0-9_-]{8,21})/)?.[1];
+        const ref = dataHeading.match(/.+(\^(?:group=|area=|frame=|clippedframe=)[A-Za-z0-9_-]{8,21})/)?.[1]
+          // I am unsure if this works with all Obsidian translations,
+          // thus I kept the first with the fix ID length and have the frame name as fallback
+          ?? dataHeading.match(/.+(\^(?:group=|area=|frame=|clippedframe=)[\p{L}\p{N}_ -]+)/u)?.[1]; 
         if(ref) {
           attr.fname = file.path + "#" +ref;
           areaPreview = true;
@@ -852,6 +855,13 @@ const tmpObsidianWYSIWYG = async (
       if(!onCanvas && imgDiv.firstChild instanceof HTMLElement) {
         imgDiv.firstChild.style.maxHeight = "100%";
         imgDiv.firstChild.style.maxWidth = null;
+      }
+      // Resolve the cyclic size dependency by applying a CSS width and/or height
+      if(!onCanvas && isHoverPopover && imgDiv.firstChild instanceof HTMLImageElement) {
+          internalEmbedDiv.style.setProperty("--popover-width", attr.fwidth + "px");
+          internalEmbedDiv.style.setProperty("--popover-height", attr.fheight + "px");
+          internalEmbedDiv.style.width = "var(--popover-width)";
+          internalEmbedDiv.style.height = "var(--popover-height)";
       }
       internalEmbedDiv.appendChild(imgDiv.firstChild);
       return;

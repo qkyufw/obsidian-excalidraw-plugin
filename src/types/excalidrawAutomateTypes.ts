@@ -9,6 +9,23 @@ export type SVGColorInfo = Map<string, {
   stroke: boolean;
 }>;
 
+export type ScriptSettingValue = {
+  value?:string | number | boolean,
+  hidden?: boolean,
+  description?: string,
+  valueset?: string[],
+  height?: number, //height of textarea in Plugin Settings if type is string
+};
+
+/**
+ * Marker for UI helpers (e.g., suggesters) that, while active, should signal
+ * host scripts to ignore or block their own keydown handlers.
+ */
+export interface KeyBlocker {
+  isBlockingKeys(): boolean;
+  close(): void;
+}
+
 export type ImageInfo = {
   mimeType: MimeType,
   id: FileId,

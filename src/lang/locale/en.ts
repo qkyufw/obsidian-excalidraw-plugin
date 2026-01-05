@@ -37,6 +37,7 @@ export default {
   CONVERT_FILE_KEEP_EXT: "*.excalidraw => *.excalidraw.md",
   CONVERT_FILE_REPLACE_EXT: "*.excalidraw => *.md (Logseq compatibility)",
   DOWNLOAD_LIBRARY: "Export stencil library as an *.excalidrawlib file",
+  OPEN_SIDEPANEL: "Open Excalidraw Sidepanel",
   OPEN_EXISTING_NEW_PANE: "Open existing drawing - IN A NEW PANE",
   OPEN_EXISTING_ACTIVE_PANE:
     "Open existing drawing - IN THE CURRENT ACTIVE PANE",
@@ -63,6 +64,7 @@ export default {
   MARKER_FRAME_TITLE_SHOW: "Show Marker Frame Titles",
   MARKER_FRAME_TITLE_HIDE: "Hide Marker Frame Titles",
   COPY_ELEMENT_LINK: "Copy [[link]] for selected element(s)",
+  FRAME_WITH_NAME: "Copy frame link by name",
   COPY_DRAWING_LINK: "Copy ![[embed link]] for this drawing",
   INSERT_LINK_TO_ELEMENT:
     `Copy [[link]] for selected element to clipboard. ${labelCTRL()}+CLICK to copy 'group=' link. ${labelSHIFT()}+CLICK to copy an 'area=' link.`,
@@ -153,6 +155,7 @@ export default {
   OPEN_AS_MD: "Open as Markdown",
   EXPORT_IMAGE: `Export Image`,
   OPEN_LINK: "Open selected text as link\n(SHIFT+CLICK to open in a new pane)",
+  EXCALIDRAW_SIDEPANEL: "Excalidraw Sidepanel",
   EXPORT_EXCALIDRAW: "Export to an .Excalidraw file",
   LINK_BUTTON_CLICK_NO_TEXT:
     "Select an element that contains an internal or external link.\n",
@@ -540,7 +543,8 @@ export default {
   LONG_PRESS_MOBILE_NAME: "Long press to open mobile",
   LONG_PRESS_MOBILE_DESC: "Long press delay in milliseconds to open an Excalidraw Drawing embedded in a Markdown file. ",
   DOUBLE_CLICK_LINK_OPEN_VIEW_MODE: "Allow double-click to open links in view mode",
-
+  ELEMENT_LINK_SYNC_NAME: "Sync text-element link with text",
+  ELEMENT_LINK_SYNC_DESC: "When enabled, Excalidraw matches pre-2.19.0 behavior: the first link in the text body is always copied to the element link field. SVG/PNG exports only keep links when the element link field holds a single link (not links inside the text body). Turn this ON if you rely on text-body links and want the element link to always mirror the first one. Turn it OFF if you manage the element link separately: for metadata like tags, inline link ontologies, or multiple links, e.g., dataview-style notes like '(reminds me of:: [[link]]) #noteToSelf'.",
   FOCUS_ON_EXISTING_TAB_NAME: "Focus on Existing Tab",
   FOCUS_ON_EXISTING_TAB_DESC: "When opening a link, Excalidraw will focus on the existing tab if the file is already open. " +
     "Enabling this setting overrides 'Reuse Adjacent Pane' when the file is already open except for the 'Open the back-of-the-note of the selected excalidraw image' command palette action.",
@@ -563,6 +567,12 @@ export default {
     "In PREVIEW mode, when parsing Text Elements, place brackets around links. " +
     "You can override this setting for a specific drawing by adding <code>"
   }${FRONTMATTER_KEYS["link-brackets"].name}: true/false</code> to the file's frontmatter.`,
+  /*LINK_DETECTION_NAME: "Do not auto-create element link from text",
+  LINK_DETECTION_DESC: "By default, Excalidraw will automatically create an element link when you type or paste a valid " +
+    "[[Obsidian link]] or a (web link) into a Text Element. This link overrides whatever element link you may have set previously. " +
+    "Even if you delete the element link, if the text element contains a valid link, Excalidraw will recreate the element link. " +
+    "If you turn this setting on, Excalidraw will not auto-create element links from text. You can still manually set element links " +
+    `Links in the text will still be navigable when you ${labelCTRL()} + CLICK the element.`,*/
   LINK_PREFIX_NAME: "Link prefix",
   LINK_PREFIX_DESC: `${
     "In PREVIEW mode, if the Text Element contains a link, precede the text with these characters. " +
@@ -1246,4 +1256,10 @@ export default {
   VERSION_MISMATCH_DISABLE_DESC: "You can re-enable this under: Settings → Excalidraw → Basic → Warn about incomplete plugin updates.",
   VERSION_MISMATCH_REDOWNLOAD: "Re-download plugin",
   VERSION_MISMATCH_IGNORE: "Ignore",
+
+  //InlineLinkSuggester.ts
+  INLINE_HINT: "Type [[ to search and insert a link",
+
+  //SuggestionModal.ts
+  SUGGESTION_NOMATCH: "No matches found",
 };

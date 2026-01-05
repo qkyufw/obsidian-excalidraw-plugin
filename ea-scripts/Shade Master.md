@@ -23,11 +23,13 @@ const HELP_TEXT = `
     - Additionally if the same color is used as fill and stroke the color can only be mapped once
 - This is an experimental script - contributions welcome on GitHub via PRs
 
+😍 If you find this script helpful, please [buy me a coffee ☕](https://ko-fi.com/zsolt).
+
 <a href="https://www.youtube.com/watch?v=ISuORbVKyhQ" target="_blank"><img src ="https://i.ytimg.com/vi/ISuORbVKyhQ/maxresdefault.jpg" style="max-width:560px; width:100%"></a>
 
 `;
 
-if(!ea.verifyMinimumPluginVersion || !ea.verifyMinimumPluginVersion("2.7.2")) {
+if(!ea.verifyMinimumPluginVersion || !ea.verifyMinimumPluginVersion("2.19.0")) {
   new Notice("This script requires a newer version of Excalidraw. Please install the latest version.");
   return;
 }
@@ -324,7 +326,7 @@ function slider(contentEl, action, min, max, step, invert) {
 
 function showModal() {
   let debounceColorPicker = true;
-  const modal = new ea.obsidian.Modal(app);
+  const modal = new ea.FloatingModal(app);
   let dirty = false;
 
   modal.onOpen = async () => {
@@ -492,6 +494,50 @@ function showModal() {
           .setValue(ea.getCM(info.mappedTo).stringHEX({alpha: false}).toLowerCase());
 
         colorPicker.colorPickerEl.style.maxWidth = "2.5rem";
+
+        // Add palette picker button
+        const paletteButton = new ea.obsidian.Setting(row.controlEl)
+          .addButton(button => button
+            .setIcon("swatch-book")
+            .setTooltip("Pick from Palette")
+            .onClick(async () => {
+              const selected = await ea.showColorPicker(button.buttonEl, "elementStroke");
+              if (selected) {
+                try {
+                  const cm = ea.getCM(selected);
+                  if (cm) {
+                    const format = settings[FORMAT].value;
+                    
+                    // Preserve alpha from original color
+                    const currentInfo = currentColors.get(svgElement.id).colors.get(color);
+                    const originalAlpha = ea.getCM(currentInfo.mappedTo).alpha;
+                    cm.alphaTo(originalAlpha);
+                    const alpha = originalAlpha < 1 ? true : false;
+
+                    const newColor = format === "RGB" 
+                      ? cm.stringRGB({alpha , precision }).toLowerCase()
+                      : format === "HEX" 
+                        ? cm.stringHEX({alpha}).toLowerCase()
+                        : cm.stringHSL({alpha, precision }).toLowerCase();
+                    
+                    // Update text input
+                    textInput.setValue(newColor);
+                    
+                    // Update Color Picker visual
+                    colorPicker.setValue(cm.stringHEX({alpha: false}).toLowerCase());
+
+                    // Update SVG mapping
+                    currentInfo.mappedTo = newColor;
+                    run("Update SVG color");
+                  }
+                } catch (e) {
+                  console.error("Invalid color value:", e);
+                }
+              }
+            }));
+        paletteButton.settingEl.style.padding = "0";
+        paletteButton.settingEl.style.border = "0";
+        paletteButton.infoEl.style.display = "none";
   
         // Store references to the components
         colorInputs.set(color, {
@@ -562,8 +608,6 @@ function showModal() {
         .setButtonText("Close")
         .setCta(true)
         .onClick(() => modal.close()));
-
-    makeModalDraggable(modalEl);
     
     const maxHeight = Math.round(height * 0.6);
     const maxWidth = Math.round(width * 0.9);
@@ -582,60 +626,6 @@ function showModal() {
   };
 
   modal.open();
-}
-
-/**
- * Add draggable functionality to the modal element.
- * @param {HTMLElement} modalEl - The modal element to make draggable.
- */
-function makeModalDraggable(modalEl) {
-  let isDragging = false;
-  let startX, startY, initialX, initialY;
-
-  const header = modalEl.querySelector('.modal-titlebar') || modalEl; // Default to modalEl if no titlebar
-  header.style.cursor = 'move';
-
-  const onPointerDown = (e) => {
-    // Ensure the event target isn't an interactive element like slider, button, or input
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    const rect = modalEl.getBoundingClientRect();
-    initialX = rect.left;
-    initialY = rect.top;
-
-    modalEl.style.position = 'absolute';
-    modalEl.style.margin = '0';
-    modalEl.style.left = `${initialX}px`;
-    modalEl.style.top = `${initialY}px`;
-  };
-
-  const onPointerMove = (e) => {
-    if (!isDragging) return;
-
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
-    modalEl.style.left = `${initialX + dx}px`;
-    modalEl.style.top = `${initialY + dy}px`;
-  };
-
-  const onPointerUp = () => {
-    isDragging = false;
-  };
-
-  header.addEventListener('pointerdown', onPointerDown);
-  document.addEventListener('pointermove', onPointerMove);
-  document.addEventListener('pointerup', onPointerUp);
-
-  // Clean up event listeners on modal close
-  modalEl.addEventListener('remove', () => {
-    header.removeEventListener('pointerdown', onPointerDown);
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-  });
 }
 
 function executeChange(isDecrease, step, action) {
