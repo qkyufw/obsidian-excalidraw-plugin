@@ -1927,23 +1927,15 @@ export class CommandManager {
           }
         }
 
-        // 获取视口尺寸信息
-        const canvasElement = view.containerEl.querySelector(".excalidraw");
-        const canvasRect = canvasElement?.getBoundingClientRect();
+        // 获取画布尺寸和偏移信息（使用 appState 以确保分屏场景下的准确性）
+        const { width, height, offsetLeft, offsetTop, zoom } = appState;
+        const zoomLevel = zoom.value;
+        const viewportWidth = width / zoomLevel;
+        const viewportHeight = height / zoomLevel;
 
-        if (!canvasRect) {
-          new Notice("无法获取画布尺寸信息");
-          return;
-        }
-
-        // 计算随机位置
-        const zoomLevel = appState.zoom.value;
-        const viewportWidth = canvasRect.width / zoomLevel;
-        const viewportHeight = canvasRect.height / zoomLevel;
-
-        // 获取当前视口的场景坐标
+        // 获取当前视口的场景坐标（需要包含 offsetLeft 和 offsetTop 以适配分屏）
         const sceneCoordsTopLeft = viewportCoordsToSceneCoords(
-          { clientX: 0, clientY: 0 },
+          { clientX: offsetLeft, clientY: offsetTop },
           appState
         );
 
